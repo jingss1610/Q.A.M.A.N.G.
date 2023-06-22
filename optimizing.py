@@ -1,8 +1,7 @@
 import pandas as pd
 import os
 import numpy as np
-import requests
-from bs4 import BeautifulSoup
+from scipy.optimize import minimize
 import sys
 import subprocess
 
@@ -31,4 +30,23 @@ for ticker, csv_file in zip(tickers, csv_list):
 for df in dfs:
     df['Return(D)'] = df['Price'].pct_change().fillna(0) * 100
 
-    print(df['Return(D)'])
+returns = pd.concat([df['Return(D)'] for df in dfs], axis=1)
+returns = returns.div(len(dfs)).mul(252)
+cov_matrix = returns.cov()
+
+num_assets = len(tickers)
+weights = np.array([1/num_assets] * num_assets)
+
+def objective_function(weights, cov_matrix):
+    portfolio_variance = np.dot(weights.T, np.dot(cov_matrix, weights))
+    return portfolio_variance
+
+def constraint(weights):
+    return np.sum(weights) - 1
+
+constraints = ({'type': 'eq', 'fun': constraint})
+result = minimize(objective_function, weights, args=(cov_matrix,), constraints=constraints)
+
+optimal_weights = result.x
+for ticker, weight in zip(tickers, optimal_weights):
+    print(f"{ticker}: {weight}")
