@@ -73,6 +73,12 @@ benchmark_KQ11 = benchmark_KQ11.loc[common_index]
 benchmark_GSPC = benchmark_GSPC.loc[common_index]
 benchmark_IXIC = benchmark_IXIC.loc[common_index]
 
+for df in dfs:
+    ticker = df['Ticker'].iloc[0]
+    file_name = f"{ticker}_portfolio.csv"
+    file_path = os.path.join(folder_path, file_name)
+    df.to_csv(file_path, encoding='utf-8-sig')
+
 folder = 'backtesting'
 portfolio_config = pd.read_csv(os.path.join(folder, 'portfolio_config.csv'), header=None, index_col=0, encoding='utf-8-sig')
 
