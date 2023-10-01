@@ -10,14 +10,14 @@ tickers = []
 weights = []
 
 for file in os.listdir('portfolio_list'):
-    if file.endswith('.csv') and file.startswith('portfolio_selected'):
+    if file.endswith('.csv') and file.startswith('portfolio_optimized'):
         filepath = os.path.join('portfolio_list', file)
         df = pd.read_csv(filepath, dtype={'Ticker': str})
         tickers += list(df['Ticker'])
         weights += list(df['Weight'])
 
 folder_path = 'portfolio_price'
-csv_updated = [f"{ticker}_updated.csv" for ticker in tickers]
+csv_updated = [f"{ticker}_optimized.csv" for ticker in tickers]
 
 dfs = []
 
@@ -33,16 +33,16 @@ for df in dfs[1:]:
 dfs = [df.loc[common_dates] for df in dfs]
 
 folder = 'backtesting'
-portfolio_data = pd.read_csv(os.path.join(folder, 'portfolio_data.csv'), index_col='Date')
+portfolio_data = pd.read_csv(os.path.join(folder, 'portfolio_opt_data.csv'), index_col='Date')
 
 # CAGR, MDD
-portfolio_prices = portfolio_data['P_Price_2']
+portfolio_prices = portfolio_data['P_Price_4']
 
 n_days = len(portfolio_prices)
 n_years = n_days / 252
 cagr = ((portfolio_prices.iloc[-1] / portfolio_prices.iloc[0]) ** (1 / n_years) - 1) * 100
 
-portfolio_prices = portfolio_data['P_Price_1']
+portfolio_prices = portfolio_data['P_Price_3']
 
 cummax = portfolio_prices.cummax()
 drawdown = (portfolio_prices - cummax) / cummax
@@ -113,7 +113,7 @@ backtesting_output = [portfolio_E_return, cagr, portfolio_std, best_year, worst_
 index = ['기대수익률', '연평균 성장률', '표준편차', '최고 연간 수익률', '최저 연간 수익률', '최대 낙폭', '샤프 비율', '소티노 비율', '칼마 비율']
 backtesting_output = pd.DataFrame(backtesting_output, index=index)
 backtesting_output = backtesting_output.round(2)
-output_path = os.path.join(folder, 'backtesting_output.csv')
+output_path = os.path.join(folder, 'optimizing_output.csv')
 backtesting_output.to_csv(output_path, index=True, header=False, encoding='utf-8-sig')
 
 print("")
@@ -122,5 +122,5 @@ print("금융투자상품은 자산가격 변동, 환율 변동 등에 따라 �
 print("투자는 자신의 책임과 위험 부담에서 이루어지는 것이므로 사용자의 투자 결과에 대해 책임을 지지 않습니다.")
 print("이 소프트웨어는 투자 결정의 근거로 사용하기 위한 것이 아니며, 완전하다고 가정해서는 안 됩니다.")
 
-subprocess.run(['python', 'optimizing.py'])
+subprocess.run(['python', 'visualizing_2.py'])
 sys.exit()

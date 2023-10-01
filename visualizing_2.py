@@ -36,7 +36,8 @@ portfolio_info = pd.read_csv('portfolio_list/portfolio_selected.csv')
 tickers = portfolio_info['Ticker']
 weights = portfolio_info['Weight']
 
-fig, ((ax1, ax2), (ax3, ax4)) = plt.subplots(nrows=2, ncols=2, figsize=(16, 9), gridspec_kw={'width_ratios': [13, 3], 'height_ratios': [8, 1]})
+fig, ((ax1, ax2, ax5), (ax3, ax4, ax6)) = plt.subplots(nrows=2, ncols=3, figsize=(16, 9), gridspec_kw={'width_ratios': [10, 3, 3], 'height_ratios': [8, 1], 'hspace': 0.5})
+
 figManager = plt.get_current_fig_manager()
 figManager.window.showMaximized()
 
@@ -137,12 +138,66 @@ ax2.set_aspect('equal', anchor=(0, 1))
 ax2.axes.get_xaxis().set_visible(False)
 ax2.axes.get_yaxis().set_visible(False)
 
+# ax5 (새로운 축, ax2 복사)
+ax5.pie(weights, labels=tickers, autopct='%1.0f%%', colors=palette,
+        wedgeprops={'edgecolor': 'black', 'linewidth': 1})
+ax5.set_title('Portfolio Configuration')
+
+table_data = []
+
+for file in os.listdir('backtesting'):
+    if file.endswith('.csv') and file.startswith('portfolio_config'):
+        filepath = os.path.join('backtesting', file)
+        portfolio_config = pd.read_csv(filepath, encoding='utf-8-sig', header=None)
+        portfolio_config = portfolio_config.astype(str)
+        portfolio_config.iloc[0, 0] = '최초잔고'
+        portfolio_config.iloc[1, 0] = '정기 입출금 주기'
+        portfolio_config.iloc[2, 0] = '입출금 설정액'
+        portfolio_config.iloc[3, 0] = '리밸런싱 주기'
+        portfolio_config.iloc[0, 1] = '₩' + '{:,.0f}'.format(float(portfolio_config.iloc[0, 1]))
+        portfolio_config.iloc[2, 1] = '₩' + '{:,.0f}'.format(float(portfolio_config.iloc[2, 1]))
+
+        for index, value in portfolio_config.iterrows():
+            if value[1] == 'year':
+                portfolio_config.iloc[index, 1] = '년'
+            elif value[1] == 'half':
+                portfolio_config.iloc[index, 1] = '반기'
+            elif value[1] == 'quarter':
+                portfolio_config.iloc[index, 1] = '분기'
+            elif value[1] == 'month':
+                portfolio_config.iloc[index, 1] = '월'
+
+        for _, row in portfolio_config.iterrows():
+            table_data.append(row.tolist())
+
+final = [['최종잔고', f'₩{Price_Points.iloc[-1]["Portfolio"]:,.0f}']]
+for row in final:
+    table_data.append(row)
+
+for file in os.listdir('backtesting'):
+    if file.endswith('.csv') and file.startswith('backtesting_output'):
+        filepath = os.path.join('backtesting', file)
+        W_backtesting_output = pd.read_csv(filepath, encoding='utf-8-sig', header=None)
+        W_backtesting_output = W_backtesting_output.astype(str)
+        W_backtesting_output.iloc[:-3, 1] = W_backtesting_output.iloc[:-3, 1].apply(lambda x: x + '%')
+        for _, row in W_backtesting_output.iterrows():
+            table_data.append(row.tolist())
+
+table = ax5.table(cellText=table_data, loc='bottom')
+table.scale(1, 4)
+table.auto_set_font_size(False)
+table.set_fontsize(10)
+
+ax5.set_aspect('equal', anchor=(0, 1))
+ax5.axes.get_xaxis().set_visible(False)
+ax5.axes.get_yaxis().set_visible(False)
+
 # ax3
 ax3.axis('off')
 ax3.text(0, 1, '※ 면 책 ※\n\n금융투자상품은 자산가격 변동, 환율 변동 등에 따라 투자원금의 손실이 발생할 수 있으며, 그 손실은 투자자에게 귀속됩니다.'
                    '\n투자는 자신의 책임과 위험 부담에서 이루어지는 것이므로 사용자의 투자 결과에 대해 책임을 지지 않습니다.'
                    '\n이 소프트웨어는 투자 결정의 근거로 사용하기 위한 것이 아니며, 완전하다고 가정해서는 안 됩니다.',
-         ha='left', va='center', fontsize=12, fontweight='bold', linespacing=1.5)
+         ha='left', va='center', fontsize=10, fontweight='bold', linespacing=1.5)
 ax3.set_aspect('equal', anchor=(0, 1))
 ax3.axes.get_xaxis().set_visible(False)
 ax3.axes.get_yaxis().set_visible(False)
@@ -151,6 +206,11 @@ ax3.axes.get_yaxis().set_visible(False)
 ax4.axis('off')
 ax4.axes.get_xaxis().set_visible(False)
 ax4.axes.get_yaxis().set_visible(False)
+
+# ax6 (새로운 축, ax4 복사)
+ax6.axis('off')
+ax6.axes.get_xaxis().set_visible(False)
+ax6.axes.get_yaxis().set_visible(False)
 
 plt.tight_layout()
 plt.show()

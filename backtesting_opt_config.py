@@ -12,7 +12,7 @@ tickers = []
 weights = []
 
 for file in os.listdir('portfolio_list'):
-    if file.endswith('.csv') and file.startswith('portfolio_selected'):
+    if file.endswith('.csv') and file.startswith('portfolio_optimized'):
         filepath = os.path.join('portfolio_list', file)
         df = pd.read_csv(filepath, dtype={'Ticker': str})
         tickers += list(df['Ticker'])
@@ -37,9 +37,6 @@ common_dates_df = dfs[0].index
 for df in dfs[1:]:
     common_dates_df = common_dates_df.intersection(df.index)
 dfs = [df.loc[common_dates_df] for df in dfs]
-
-#benchmark_KS11 = stock.get_index_ohlcv("00000000", f"{datetime.today().strftime('%Y%m%d')}", "1001")
-#benchmark_KS11 = benchmark_KS11.iloc[:, 3:4]
 
 benchmark_KS11 = fdr.DataReader('KS11')
 benchmark_KS11 = benchmark_KS11.iloc[:, 4:5]
@@ -97,9 +94,9 @@ for benchmark in [benchmark_KS11, benchmark_KQ11, benchmark_GSPC, benchmark_IXIC
 for df in dfs:
     df['Return(D)'] = df['Price'].pct_change().fillna(0) * 100
 
-P_Price_1 = pd.concat([df['Price'] for df in dfs], axis=1).sum(axis=1)
+P_Price_3 = pd.concat([df['Price'] for df in dfs], axis=1).sum(axis=1)
 
-P_Return_D = P_Price_1.pct_change().fillna(0) * 100
+P_Return_D = P_Price_3.pct_change().fillna(0) * 100
 
 # Rebalancing
 re_interval = portfolio_config.loc['Re_interval'].values[0]
@@ -188,30 +185,20 @@ if CF_interval in ['year', 'half', 'quarter', 'month']:
 
 for df in dfs:
     ticker = df['Ticker'].iloc[0]
-    file_name = f"{ticker}_updated.csv"
+    file_name = f"{ticker}_optimized.csv"
     file_path = os.path.join(folder_path, file_name)
     df.drop('Date', axis=1, inplace=True)
     df.drop('Ticker', axis=1, inplace=True)
     df.to_csv(file_path, encoding='utf-8-sig')
 
-P_Price_2 = pd.concat([df['Price'] for df in dfs], axis=1).sum(axis=1)
+P_Price_4 = pd.concat([df['Price'] for df in dfs], axis=1).sum(axis=1)
 
-portfolio_data = pd.DataFrame({'P_Price_1': P_Price_1, 'P_Price_2': P_Price_2, 'P_Return(D)': P_Return_D})
+portfolio_data = pd.DataFrame({'P_Price_3': P_Price_3, 'P_Price_4': P_Price_4, 'P_Return(D)': P_Return_D})
 
-if portfolio_data['P_Price_2'].isna().any():
+if portfolio_data['P_Price_4'].isna().any():
     portfolio_data.drop(portfolio_data.index[0], inplace=True)
 
-portfolio_data.to_csv('backtesting/portfolio_data.csv', index=True, encoding='utf-8-sig')
+portfolio_data.to_csv('backtesting/portfolio_opt_data.csv', index=True, encoding='utf-8-sig')
 
-for benchmark in [benchmark_KS11, benchmark_KQ11, benchmark_GSPC, benchmark_IXIC]:
-    benchmark.drop('Date', axis=1, inplace=True)
-
-benchmark_data = pd.concat([benchmark_KS11, benchmark_KQ11, benchmark_GSPC, benchmark_IXIC], axis=1)
-benchmark_data.columns = ['KOSPI', 'KOSDAQ', 'S&P 500', 'NASDAQ']
-benchmark_data = benchmark_data.fillna(method='ffill')
-
-file_path = os.path.join(folder, 'benchmarks_data.csv')
-benchmark_data.to_csv(file_path)
-
-subprocess.run(['python', 'backtesting_main.py'])
+subprocess.run(['python', 'backtesting_opt_main.py'])
 sys.exit()

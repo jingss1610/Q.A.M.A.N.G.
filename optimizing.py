@@ -2,6 +2,9 @@ import pandas as pd
 import os
 import numpy as np
 from scipy.optimize import minimize
+import requests
+from bs4 import BeautifulSoup
+import csv
 import sys
 import subprocess
 
@@ -27,26 +30,61 @@ for ticker, csv_file in zip(tickers, csv_list):
     df['Return(D)'] = np.nan
     dfs.append(df)
 
+common_dates_df = dfs[0].index
+for df in dfs[1:]:
+    common_dates_df = common_dates_df.intersection(df.index)
+dfs = [df.loc[common_dates_df] for df in dfs]
+
 for df in dfs:
     df['Return(D)'] = df['Price'].pct_change().fillna(0) * 100
 
-returns = pd.concat([df['Return(D)'] for df in dfs], axis=1)
-returns = returns.div(len(dfs)).mul(252)
-cov_matrix = returns.cov()
-
 num_assets = len(tickers)
-weights = np.array([1/num_assets] * num_assets)
+initial_weights = np.array([1/num_assets] * num_assets)
 
-def objective_function(weights, cov_matrix):
-    portfolio_variance = np.dot(weights.T, np.dot(cov_matrix, weights))
-    return portfolio_variance
+# 무위험이자율
+url = 'https://stooq.com/q/?s=10kry.b'
+response = requests.get(url)
+soup = BeautifulSoup(response.content, 'html.parser')
+risk_free_rate = float(soup.find(id='aq_10kry.b_c3').text)
 
-def constraint(weights):
-    return np.sum(weights) - 1
+returns = pd.concat([df['Return(D)'] for df in dfs], axis=1)
 
-constraints = ({'type': 'eq', 'fun': constraint})
-result = minimize(objective_function, weights, args=(cov_matrix,), constraints=constraints)
+if len(tickers) == 1:
+    cov_matrix_df = pd.DataFrame({'cov': [np.var(returns)]}, index=tickers, columns=tickers)
+else:
+    cov_matrix = np.cov(returns, rowvar=False)
+    cov_matrix_df = pd.DataFrame(cov_matrix, index=tickers, columns=tickers)
 
-optimal_weights = result.x
-for ticker, weight in zip(tickers, optimal_weights):
-    print(f"{ticker}: {weight}")
+returns = returns.div(len(dfs)).mul(252)
+mean_returns = returns.mean()
+cov_matrix = cov_matrix_df.to_numpy()
+
+def sharpe_ratio_objective(weights, mean_returns, cov_matrix, risk_free_rate):
+    portfolio_return = np.sum(mean_returns * weights)
+    portfolio_stddev = np.sqrt(np.dot(weights.T, np.dot(cov_matrix, weights)))
+    sharpe_ratio = (portfolio_return - risk_free_rate) / portfolio_stddev
+    return -sharpe_ratio
+
+constraints = ({'type': 'eq', 'fun': lambda weights: np.sum(weights) - 1})
+bounds = tuple((0, 1) for asset in range(num_assets))
+
+optimal_weights = minimize(sharpe_ratio_objective, initial_weights, method='SLSQP', bounds=bounds, constraints=constraints, args=(mean_returns, cov_matrix, risk_free_rate))
+optimal_weights = optimal_weights.x
+
+optimal_portfolio_return = np.sum(mean_returns * optimal_weights)
+optimal_portfolio_stddev = np.sqrt(np.dot(optimal_weights.T, np.dot(cov_matrix, optimal_weights)))
+optimal_sharpe_ratio = (optimal_portfolio_return - risk_free_rate) / optimal_portfolio_stddev
+
+optimal_weights_rounded = [round(weight * 100, 2) for weight in optimal_weights]
+filtered_data = [(ticker, weight) for ticker, weight in zip(tickers, optimal_weights_rounded) if weight != 0]
+tickers_filtered, optimal_weights_filtered = zip(*filtered_data)
+folder_path = 'portfolio_list'
+csv_file_path = os.path.join(folder_path, 'portfolio_optimized.csv')
+with open(csv_file_path, mode='w', newline='', encoding='utf-8-sig') as csv_file:
+    writer = csv.DictWriter(csv_file, fieldnames=['Ticker', 'Weight'])
+    writer.writeheader()
+    for row in zip(tickers_filtered, optimal_weights_filtered):
+        writer.writerow({'Ticker': row[0], 'Weight': row[1]})
+
+subprocess.run(['python', 'backtesting_opt_config.py'])
+sys.exit()
