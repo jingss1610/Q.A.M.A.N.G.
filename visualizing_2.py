@@ -7,6 +7,7 @@ import seaborn as sns
 import numpy as np
 
 portfolio_data = []
+portfolio_opt_data = []
 
 for file in os.listdir('backtesting'):
     if file.endswith('.csv') and file.startswith('portfolio_data'):
@@ -14,17 +15,29 @@ for file in os.listdir('backtesting'):
         df = pd.read_csv(filepath, index_col='Date')
         portfolio_data.append(df)
 
+for file in os.listdir('backtesting'):
+    if file.endswith('.csv') and file.startswith('portfolio_opt_data'):
+        filepath = os.path.join('backtesting', file)
+        df = pd.read_csv(filepath, index_col='Date')
+        portfolio_opt_data.append(df)
+
 P_Price_2 = pd.DataFrame()
 for df in portfolio_data:
     P_Price_2_df = df[['P_Price_2']]
     P_Price_2 = pd.concat([P_Price_2, P_Price_2_df], axis=1)
 P_Price_2.index = pd.to_datetime(P_Price_2.index)
 
+P_Price_4 = pd.DataFrame()
+for df in portfolio_opt_data:
+    P_Price_4_df = df[['P_Price_4']]
+    P_Price_4 = pd.concat([P_Price_4, P_Price_4_df], axis=1)
+P_Price_4.index = pd.to_datetime(P_Price_4.index)
+
 benchmarks_data = pd.read_csv('backtesting/benchmarks_data.csv', index_col='Date', parse_dates=['Date'])
 benchmarks_data = benchmarks_data[['KOSPI', 'KOSDAQ', 'S&P 500', 'NASDAQ']]
 
-Price_Points = pd.concat([P_Price_2['P_Price_2'], benchmarks_data['KOSPI'], benchmarks_data['KOSDAQ'], benchmarks_data['S&P 500'], benchmarks_data['NASDAQ']], axis=1)
-Price_Points.columns = ['Portfolio', 'KOSPI', 'KOSDAQ', 'S&P 500', 'NASDAQ']
+Price_Points = pd.concat([P_Price_4['P_Price_4'], P_Price_2['P_Price_2'], benchmarks_data['KOSPI'], benchmarks_data['KOSDAQ'], benchmarks_data['S&P 500'], benchmarks_data['NASDAQ']], axis=1)
+Price_Points.columns = ['Optimized Portfolio', 'Initial Portfolio', 'KOSPI', 'KOSDAQ', 'S&P 500', 'NASDAQ']
 
 empty_cols = Price_Points.columns[Price_Points.iloc[0].isnull()]
 Price_Points.dropna(axis=0, how='any', subset=empty_cols, inplace=True)
@@ -35,6 +48,10 @@ mpl.rcParams['font.family'] = 'Malgun Gothic'
 portfolio_info = pd.read_csv('portfolio_list/portfolio_selected.csv')
 tickers = portfolio_info['Ticker']
 weights = portfolio_info['Weight']
+
+portfolio_opt_info = pd.read_csv('portfolio_list/portfolio_recommended.csv')
+opt_tickers = portfolio_opt_info['Ticker']
+opt_weights = portfolio_opt_info['Weight']
 
 fig, ((ax1, ax2, ax5), (ax3, ax4, ax6)) = plt.subplots(nrows=2, ncols=3, figsize=(16, 9), gridspec_kw={'width_ratios': [10, 3, 3], 'height_ratios': [8, 1], 'hspace': 0.5})
 
@@ -57,8 +74,11 @@ for val in ax1.get_yticks():
 for date in pd.date_range(start=Price_Points.index[0], end=Price_Points.index[-1], freq='Q'):
     ax1.axvline(x=date, linewidth=0.1, color='gray')
 
-portfolio_label = f'₩{Price_Points.iloc[-1]["Portfolio"]:,.0f}'
-ax1.text(Price_Points.index[-1], Price_Points.iloc[-1]['Portfolio']*1.25, portfolio_label, ha='center', va='center')
+portfolio_label = f'₩{Price_Points.iloc[-1]["Optimized Portfolio"]:,.0f}'
+ax1.text(Price_Points.index[-1], Price_Points.iloc[-1]['Optimized Portfolio']*1.25, portfolio_label, ha='center', va='center')
+
+portfolio_label = f'₩{Price_Points.iloc[-1]["Initial Portfolio"]:,.0f}'
+ax1.text(Price_Points.index[-1], Price_Points.iloc[-1]['Initial Portfolio']*1.25, portfolio_label, ha='center', va='center')
 
 ax1.set_yscale('log')
 
@@ -76,6 +96,7 @@ for x in new_yticks_all:
         new_yticklabels.append(f'{x//1000000:,.0f}M')
     else:
         new_yticklabels.append(f'{x//100000:,.0f}K')
+
 ax1.set_yticks(new_yticks_all)
 ax1.set_yticklabels(new_yticklabels)
 
@@ -85,9 +106,9 @@ ax1.set_ylim([y_min, y_max])
 
 # ax2
 palette = sns.color_palette('Set3')
-ax2.pie(weights, labels=tickers, autopct='%1.0f%%', colors=palette,
+ax2.pie(opt_weights, labels=opt_tickers, autopct='%1.0f%%', colors=palette,
         wedgeprops={'edgecolor': 'black', 'linewidth': 1})
-ax2.set_title('Portfolio Configuration')
+ax2.set_title('Optimized by Modern Portfolio Theory')
 
 table_data = []
 
@@ -116,12 +137,12 @@ for file in os.listdir('backtesting'):
         for _, row in portfolio_config.iterrows():
             table_data.append(row.tolist())
 
-final = [['최종잔고', f'₩{Price_Points.iloc[-1]["Portfolio"]:,.0f}']]
-for row in final:
+opt_final = [['최종잔고', f'₩{Price_Points.iloc[-1]["Optimized Portfolio"]:,.0f}']]
+for row in opt_final:
     table_data.append(row)
 
 for file in os.listdir('backtesting'):
-    if file.endswith('.csv') and file.startswith('backtesting_output'):
+    if file.endswith('.csv') and file.startswith('optimizing_output'):
         filepath = os.path.join('backtesting', file)
         W_backtesting_output = pd.read_csv(filepath, encoding='utf-8-sig', header=None)
         W_backtesting_output = W_backtesting_output.astype(str)
@@ -138,10 +159,10 @@ ax2.set_aspect('equal', anchor=(0, 1))
 ax2.axes.get_xaxis().set_visible(False)
 ax2.axes.get_yaxis().set_visible(False)
 
-# ax5 (새로운 축, ax2 복사)
+# ax5
 ax5.pie(weights, labels=tickers, autopct='%1.0f%%', colors=palette,
         wedgeprops={'edgecolor': 'black', 'linewidth': 1})
-ax5.set_title('Portfolio Configuration')
+ax5.set_title('Initial Portfolio Configuration')
 
 table_data = []
 
@@ -170,7 +191,7 @@ for file in os.listdir('backtesting'):
         for _, row in portfolio_config.iterrows():
             table_data.append(row.tolist())
 
-final = [['최종잔고', f'₩{Price_Points.iloc[-1]["Portfolio"]:,.0f}']]
+final = [['최종잔고', f'₩{Price_Points.iloc[-1]["Initial Portfolio"]:,.0f}']]
 for row in final:
     table_data.append(row)
 
@@ -207,10 +228,9 @@ ax4.axis('off')
 ax4.axes.get_xaxis().set_visible(False)
 ax4.axes.get_yaxis().set_visible(False)
 
-# ax6 (새로운 축, ax4 복사)
+# ax6
 ax6.axis('off')
 ax6.axes.get_xaxis().set_visible(False)
 ax6.axes.get_yaxis().set_visible(False)
 
-plt.tight_layout()
 plt.show()

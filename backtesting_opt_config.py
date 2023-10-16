@@ -12,7 +12,7 @@ tickers = []
 weights = []
 
 for file in os.listdir('portfolio_list'):
-    if file.endswith('.csv') and file.startswith('portfolio_optimized'):
+    if file.endswith('.csv') and file.startswith('portfolio_recommended'):
         filepath = os.path.join('portfolio_list', file)
         df = pd.read_csv(filepath, dtype={'Ticker': str})
         tickers += list(df['Ticker'])
