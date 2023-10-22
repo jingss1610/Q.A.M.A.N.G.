@@ -1,6 +1,8 @@
 import pandas as pd
 import os
 import numpy as np
+import yfinance as yf
+import cvxpy as cp
 from scipy.optimize import minimize
 import requests
 from bs4 import BeautifulSoup
@@ -41,12 +43,6 @@ for df in dfs:
 num_assets = len(tickers)
 initial_weights = np.array([1/num_assets] * num_assets)
 
-# 무위험이자율
-url = 'https://stooq.com/q/?s=10kry.b'
-response = requests.get(url)
-soup = BeautifulSoup(response.content, 'html.parser')
-risk_free_rate = float(soup.find(id='aq_10kry.b_c3').text)
-
 returns = pd.concat([df['Return(D)'] for df in dfs], axis=1)
 
 if len(tickers) == 1:
@@ -59,24 +55,33 @@ returns = returns.div(len(dfs)).mul(252)
 mean_returns = returns.mean()
 cov_matrix = cov_matrix_df.to_numpy()
 
-def sharpe_ratio_objective(weights, mean_returns, cov_matrix, risk_free_rate):
-    portfolio_return = np.sum(mean_returns * weights)
-    portfolio_stddev = np.sqrt(np.dot(weights.T, np.dot(cov_matrix, weights)))
-    sharpe_ratio = (portfolio_return - risk_free_rate) / portfolio_stddev
-    return -sharpe_ratio
+benchmark_GSPC = yf.download('^GSPC')
+benchmark_GSPC['Return(I)'] = benchmark_GSPC['Adj Close'].pct_change().dropna()
 
-constraints = ({'type': 'eq', 'fun': lambda weights: np.sum(weights) - 1})
-bounds = tuple((0, 1) for asset in range(num_assets))
+common_dates_bench = benchmark_GSPC.index
 
-optimal_weights = minimize(sharpe_ratio_objective, initial_weights, method='SLSQP', bounds=bounds, constraints=constraints, args=(mean_returns, cov_matrix, risk_free_rate))
-optimal_weights = optimal_weights.x
+common_index = common_dates_df.intersection(common_dates_bench)
+df = df.loc[common_index]
+dfs = [df.loc[common_index] for df in dfs]
+benchmark_GSPC = benchmark_GSPC.loc[common_index]
 
-optimal_portfolio_return = np.sum(mean_returns * optimal_weights)
-optimal_portfolio_stddev = np.sqrt(np.dot(optimal_weights.T, np.dot(cov_matrix, optimal_weights)))
-optimal_sharpe_ratio = (optimal_portfolio_return - risk_free_rate) / optimal_portfolio_stddev
+daily_volatility = benchmark_GSPC['Return(I)'].std()
+target_risk = daily_volatility
 
-optimal_weights_rounded = [round(weight * 100, 2) for weight in optimal_weights]
-filtered_data = [(ticker, weight) for ticker, weight in zip(tickers, optimal_weights_rounded) if weight != 0]
+weights = cp.Variable(num_assets)
+portfolio_risk = cp.quad_form(weights, cov_matrix)
+
+constraints = [cp.sum(weights) == 1, weights >= 0]
+objective = cp.Minimize(portfolio_risk)
+problem = cp.Problem(objective, constraints)
+problem.solve()
+
+optimal_weights = [round(weight * 100, 2) for weight in weights.value]
+
+for i in range(len(tickers)):
+    print(tickers[i], optimal_weights[i])
+
+filtered_data = [(ticker, weight) for ticker, weight in zip(tickers, optimal_weights) if weight != 0]
 tickers_filtered, optimal_weights_filtered = zip(*filtered_data)
 folder_path = 'portfolio_list'
 csv_file_path = os.path.join(folder_path, 'portfolio_recommended.csv')
