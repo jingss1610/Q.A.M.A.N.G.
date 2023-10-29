@@ -72,7 +72,12 @@ for sym in symbols:
 
         for name in data_order:
             if name in stock_data.keys():
-                writer.writerow((name, stock_data[name], sym))
+                value = stock_data[name]
+                if name == 'Market Cap' and 'B' in value:
+                    value = float(value.replace('B', '').strip()) * 1000
+                if name == 'Quick Ratio':
+                    value = float(value) * 100
+                writer.writerow((name, value, sym))
 
         csvFile.close()
         downloaded_syms.append(sym)
@@ -201,5 +206,5 @@ print(f"All stock fundamental indicators saved to {all_stock_funda_indicators_cs
 end = time.time()
 print(f"Elapsed time: {end - start} seconds")
 
-subprocess.run(['python', 'recommending.py'])
+subprocess.run(['python', 'recom_stmt.py'])
 sys.exit()

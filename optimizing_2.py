@@ -55,17 +55,17 @@ returns = returns.div(len(dfs)).mul(252)
 mean_returns = returns.mean()
 cov_matrix = cov_matrix_df.to_numpy()
 
-benchmark_GSPC = yf.download('^GSPC')
-benchmark_GSPC['Return(I)'] = benchmark_GSPC['Adj Close'].pct_change().dropna()
+benchmark_IXIC = yf.download('^IXIC')
+benchmark_IXIC['Return(I)'] = benchmark_IXIC['Adj Close'].pct_change().dropna()
 
-common_dates_bench = benchmark_GSPC.index
+common_dates_bench = benchmark_IXIC.index
 
 common_index = common_dates_df.intersection(common_dates_bench)
 df = df.loc[common_index]
 dfs = [df.loc[common_index] for df in dfs]
-benchmark_GSPC = benchmark_GSPC.loc[common_index]
+benchmark_IXIC = benchmark_IXIC.loc[common_index]
 
-daily_volatility = benchmark_GSPC['Return(I)'].std()
+daily_volatility = benchmark_IXIC['Return(I)'].std()
 target_risk = daily_volatility
 
 weights = cp.Variable(num_assets)

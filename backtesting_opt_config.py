@@ -12,11 +12,10 @@ tickers = []
 weights = []
 
 for file in os.listdir('portfolio_list'):
-    if file.endswith('.csv') and file.startswith('portfolio_recommended'):
+    if file.endswith('.csv') and (file.startswith('portfolio_recommended') or file.startswith('portfolio_selected')):
         filepath = os.path.join('portfolio_list', file)
         df = pd.read_csv(filepath, dtype={'Ticker': str})
         tickers += list(df['Ticker'])
-        weights += list(df['Weight'])
 
 folder_path = 'portfolio_price'
 csv_list = [f"{ticker}_portfolio.csv" for ticker in tickers]
@@ -61,14 +60,38 @@ for benchmark in [benchmark_KS11, benchmark_KQ11, benchmark_GSPC, benchmark_IXIC
     common_dates_bench = common_dates_bench.intersection(benchmark.index)
 [benchmark_KS11, benchmark_KQ11, benchmark_GSPC, benchmark_IXIC] = [benchmark.loc[common_dates_bench] for benchmark in [benchmark_KS11, benchmark_KQ11, benchmark_GSPC, benchmark_IXIC]]
 
-common_index = common_dates_df.intersection(common_dates_bench)
-df = df.loc[common_index]
-benchmark = benchmark.loc[common_index]
-dfs = [df.loc[common_index] for df in dfs]
-benchmark_KS11 = benchmark_KS11.loc[common_index]
-benchmark_KQ11 = benchmark_KQ11.loc[common_index]
-benchmark_GSPC = benchmark_GSPC.loc[common_index]
-benchmark_IXIC = benchmark_IXIC.loc[common_index]
+for df in dfs:
+    ticker = df['Ticker'].iloc[0]
+    file_name = f"{ticker}_portfolio.csv"
+    file_path = os.path.join(folder_path, file_name)
+    df.drop('Date', axis=1, inplace=True)
+    df.drop('Ticker', axis=1, inplace=True)
+    df.to_csv(file_path, encoding='utf-8-sig')
+
+tickers = []
+weights = []
+
+for file in os.listdir('portfolio_list'):
+    if file.endswith('.csv') and (file.startswith('portfolio_recommended')):
+        filepath = os.path.join('portfolio_list', file)
+        df = pd.read_csv(filepath, dtype={'Ticker': str})
+        tickers += list(df['Ticker'])
+        weights += list(df['Weight'])
+
+folder_path = 'portfolio_price'
+csv_list = [f"{ticker}_portfolio.csv" for ticker in tickers]
+
+dfs = []
+
+for ticker, csv_file in zip(tickers, csv_list):
+    file_path = os.path.join(folder_path, csv_file)
+    df = pd.read_csv(file_path, index_col='Date', encoding='utf-8-sig')
+    df.index = pd.to_datetime(df.index)
+    df['Date'] = df.index
+    df['Ticker'] = ticker
+    df['Re_Price'] = np.nan
+    df['Return(D)'] = np.nan
+    dfs.append(df)
 
 for df in dfs:
     ticker = df['Ticker'].iloc[0]
@@ -80,6 +103,18 @@ folder = 'backtesting'
 portfolio_config = pd.read_csv(os.path.join(folder, 'portfolio_config.csv'), header=None, index_col=0, encoding='utf-8-sig')
 
 initial_amount = float(portfolio_config.loc['I_amount'][1])
+
+print("Length of dfs list:", len(dfs))
+print("Length of weights list:", len(weights))
+
+common_index = common_dates_df.intersection(common_dates_bench)
+df = df.loc[common_index]
+benchmark = benchmark.loc[common_index]
+dfs = [df.loc[common_index] for df in dfs]
+benchmark_KS11 = benchmark_KS11.loc[common_index]
+benchmark_KQ11 = benchmark_KQ11.loc[common_index]
+benchmark_GSPC = benchmark_GSPC.loc[common_index]
+benchmark_IXIC = benchmark_IXIC.loc[common_index]
 
 for i, df in enumerate(dfs):
     price_col = df['Price']

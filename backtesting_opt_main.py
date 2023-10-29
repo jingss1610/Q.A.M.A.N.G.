@@ -59,10 +59,12 @@ worst_year = annual_return.min()
 portfolio_E_return = portfolio_data['P_Return(D)'].mean() * 252
 
 # 무위험이자율
-url = 'https://stooq.com/q/?s=10kry.b'
+url = 'https://stooq.com/q/?s=10ykry.b'
 response = requests.get(url)
-soup = BeautifulSoup(response.content, 'html.parser')
-risk_free_rate = float(soup.find(id='aq_10kry.b_c3').text)
+html = response.text
+soup = BeautifulSoup(html, 'html.parser')
+span_element = soup.find('span', id='aq_10ykry.b_c3')
+risk_free_rate = float(span_element.text)
 
 # 공분산, 상관계수, 하방위험
 returns = pd.concat([df['Return(D)'] for df in dfs], axis=1)

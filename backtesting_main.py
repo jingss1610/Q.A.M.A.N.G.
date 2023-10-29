@@ -59,10 +59,12 @@ worst_year = annual_return.min()
 portfolio_E_return = portfolio_data['P_Return(D)'].mean() * 252
 
 # 무위험이자율
-url = 'https://stooq.com/q/?s=10kry.b'
+url = 'https://stooq.com/q/?s=10ykry.b'
 response = requests.get(url)
-soup = BeautifulSoup(response.content, 'html.parser')
-risk_free_rate = float(soup.find(id='aq_10kry.b_c3').text)
+html = response.text
+soup = BeautifulSoup(html, 'html.parser')
+span_element = soup.find('span', id='aq_10ykry.b_c3')
+risk_free_rate = float(span_element.text)
 
 # 공분산, 상관계수, 하방위험
 returns = pd.concat([df['Return(D)'] for df in dfs], axis=1)
@@ -122,5 +124,7 @@ print("금융투자상품은 자산가격 변동, 환율 변동 등에 따라 �
 print("투자는 자신의 책임과 위험 부담에서 이루어지는 것이므로 사용자의 투자 결과에 대해 책임을 지지 않습니다.")
 print("이 소프트웨어는 투자 결정의 근거로 사용하기 위한 것이 아니며, 완전하다고 가정해서는 안 됩니다.")
 
-subprocess.run(['python', 'optimizing_1.py'])
+#subprocess.run(['python', 'optimizing_1.py'])
+#subprocess.run(['python', 'recom_funda.py'])
+subprocess.run(['python', 'recommending.py'])
 sys.exit()

@@ -11,7 +11,7 @@ import subprocess
 tickers = []
 
 for file in os.listdir('portfolio_list'):
-    if file.endswith('.csv') and file.startswith('portfolio_selected'):
+    if file.endswith('.csv') and file.startswith('portfolio_recommended'):
         filepath = os.path.join('portfolio_list', file)
         df = pd.read_csv(filepath, dtype={'Ticker': str})
         tickers += list(df['Ticker'])
@@ -42,10 +42,12 @@ num_assets = len(tickers)
 initial_weights = np.array([1/num_assets] * num_assets)
 
 # 무위험이자율
-url = 'https://stooq.com/q/?s=10kry.b'
+url = 'https://stooq.com/q/?s=10ykry.b'
 response = requests.get(url)
-soup = BeautifulSoup(response.content, 'html.parser')
-risk_free_rate = float(soup.find(id='aq_10kry.b_c3').text)
+html = response.text
+soup = BeautifulSoup(html, 'html.parser')
+span_element = soup.find('span', id='aq_10ykry.b_c3')
+risk_free_rate = float(span_element.text)
 
 returns = pd.concat([df['Return(D)'] for df in dfs], axis=1)
 
@@ -79,12 +81,14 @@ optimal_weights_rounded = [round(weight * 100, 2) for weight in optimal_weights]
 filtered_data = [(ticker, weight) for ticker, weight in zip(tickers, optimal_weights_rounded) if weight != 0]
 tickers_filtered, optimal_weights_filtered = zip(*filtered_data)
 folder_path = 'portfolio_list'
-csv_file_path = os.path.join(folder_path, 'portfolio_optimized.csv')
+csv_file_path = os.path.join(folder_path, 'portfolio_recommended.csv')
 with open(csv_file_path, mode='w', newline='', encoding='utf-8-sig') as csv_file:
     writer = csv.DictWriter(csv_file, fieldnames=['Ticker', 'Weight'])
     writer.writeheader()
     for row in zip(tickers_filtered, optimal_weights_filtered):
         writer.writerow({'Ticker': row[0], 'Weight': row[1]})
 
-subprocess.run(['python', 'recom_funda.py'])
+#subprocess.run(['python', 'recom_funda.py'])
+#subprocess.run(['python', 'backtesting_opt_config.py'])
+subprocess.run(['python', 'optimizing_2.py'])
 sys.exit()
