@@ -136,5 +136,5 @@ for ticker, weight in zip(tickers, weights):
         file_path = os.path.join(folder, f'{ticker}_portfolio.csv')
         data.to_csv(file_path, encoding='utf-8-sig')
 
-subprocess.run(['python', 'optimizing_1.py'])
+subprocess.run(['python', 'optimizing_2.py'])
 sys.exit()

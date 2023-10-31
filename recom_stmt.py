@@ -196,5 +196,5 @@ print(f"All stock cash flow saved to {all_stock_cash_csv}")
 end = time.time()
 print(f"Elapsed time: {end - start} seconds")
 
-#subprocess.run(['python', 'recommending.py'])
-#sys.exit()
+subprocess.run(['python', 'recommending.py'])
+sys.exit()

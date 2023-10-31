@@ -61,9 +61,9 @@ profit_margin_condition = df.loc['Profit Margin'] >= 10
 satisfying_rows = df.loc[:, fcf_condition_1 & fcf_condition_2 & roa_condition & roe_condition & roi_condition & debt_eq_condition & quick_condition & profit_margin_condition]
 
 max_roe_column = satisfying_rows.loc['ROE'].idxmax()
-top_roe_columns = satisfying_rows.loc['ROE'].nlargest(5)
+top_roe_columns = satisfying_rows.loc['ROE'].nlargest(3)
 
-portfolio_optimized_file = 'portfolio_list/portfolio_selected.csv'
+portfolio_optimized_file = 'portfolio_list/portfolio_optimized.csv'
 portfolio_optimized_df = pd.read_csv(portfolio_optimized_file, encoding='utf-8-sig')
 
 # 1개
@@ -71,7 +71,7 @@ print(max_roe_column)
 #new_row = {'Ticker': max_roe_column}
 #portfolio_optimized_df = pd.concat([portfolio_optimized_df, pd.DataFrame(new_row, index=[0])], ignore_index=True)
 
-# 5개
+# 3개
 print(', '.join(top_roe_columns.index))
 new_rows = [{'Ticker': ticker} for ticker in top_roe_columns.index]
 portfolio_optimized_df = pd.concat([portfolio_optimized_df, pd.DataFrame(new_rows)], ignore_index=True)

@@ -1,11 +1,7 @@
 import pandas as pd
 import os
 import numpy as np
-import yfinance as yf
-import cvxpy as cp
 from scipy.optimize import minimize
-import requests
-from bs4 import BeautifulSoup
 import csv
 import sys
 import subprocess
@@ -55,41 +51,38 @@ returns = returns.div(len(dfs)).mul(252)
 mean_returns = returns.mean()
 cov_matrix = cov_matrix_df.to_numpy()
 
-benchmark_IXIC = yf.download('^IXIC')
-benchmark_IXIC['Return(I)'] = benchmark_IXIC['Adj Close'].pct_change().dropna()
+def objective(weights):
+    portfolio_return = np.sum(mean_returns * weights) * 252
+    portfolio_stddev = np.sqrt(np.dot(weights.T, np.dot(cov_matrix, weights))) * np.sqrt(252)
+    sharpe_ratio = portfolio_return / portfolio_stddev
+    return -sharpe_ratio
 
-common_dates_bench = benchmark_IXIC.index
+constraints = (
+    {'type': 'eq', 'fun': lambda weights: np.sum(weights) - 1},
+    {'type': 'ineq', 'fun': lambda weights: weights}
+)
 
-common_index = common_dates_df.intersection(common_dates_bench)
-df = df.loc[common_index]
-dfs = [df.loc[common_index] for df in dfs]
-benchmark_IXIC = benchmark_IXIC.loc[common_index]
+initial_guess = np.array([1/num_assets] * num_assets)
 
-daily_volatility = benchmark_IXIC['Return(I)'].std()
-target_risk = daily_volatility
+result = minimize(objective, initial_guess, method='SLSQP', constraints=constraints)
 
-weights = cp.Variable(num_assets)
-portfolio_risk = cp.quad_form(weights, cov_matrix)
+optimal_weights = result.x
 
-constraints = [cp.sum(weights) == 1, weights >= 0]
-objective = cp.Minimize(portfolio_risk)
-problem = cp.Problem(objective, constraints)
-problem.solve()
+min_weight_threshold = 0.01
+filtered_tickers = [ticker for ticker, weight in zip(tickers, optimal_weights) if weight >= min_weight_threshold]
+filtered_weights = [weight for weight in optimal_weights if weight >= min_weight_threshold]
 
-optimal_weights = [round(weight * 100, 2) for weight in weights.value]
+for ticker, weight in zip(filtered_tickers, filtered_weights):
+    print(f"{ticker}: {weight:.2%}")
 
-for i in range(len(tickers)):
-    print(tickers[i], optimal_weights[i])
-
-filtered_data = [(ticker, weight) for ticker, weight in zip(tickers, optimal_weights) if weight != 0]
-tickers_filtered, optimal_weights_filtered = zip(*filtered_data)
 folder_path = 'portfolio_list'
 csv_file_path = os.path.join(folder_path, 'portfolio_recommended.csv')
 with open(csv_file_path, mode='w', newline='', encoding='utf-8-sig') as csv_file:
     writer = csv.DictWriter(csv_file, fieldnames=['Ticker', 'Weight'])
     writer.writeheader()
-    for row in zip(tickers_filtered, optimal_weights_filtered):
-        writer.writerow({'Ticker': row[0], 'Weight': row[1]})
+    for row in zip(filtered_tickers, filtered_weights):
+        weight_formatted = round(row[1] * 100, 2)
+        writer.writerow({'Ticker': row[0], 'Weight': weight_formatted})
 
 subprocess.run(['python', 'backtesting_opt_config.py'])
 sys.exit()
